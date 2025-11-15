@@ -2,6 +2,7 @@ import json
 import sys
 import oracledb
 
+
 def create_connection():
     try:
         conn = oracledb.connect(
@@ -14,12 +15,14 @@ def create_connection():
         print("Erro de conexão:", e)
         return None
 
+
 def validar_str(msg):
     while True:
         valor = input(msg).strip()
         if valor:
             return valor
         print("Valor inválido.")
+
 
 def validar_int(msg, minimo=0, maximo=100):
     while True:
@@ -28,8 +31,9 @@ def validar_int(msg, minimo=0, maximo=100):
             if minimo <= v <= maximo:
                 return v
             print(f"Digite um número entre {minimo} e {maximo}.")
-        except:
-            print("Entrada inválida.")
+        except ValueError:
+            print("Entrada inválida. Digite um número inteiro.")
+
 
 def exportar_json(dados, nome):
     try:
@@ -38,6 +42,7 @@ def exportar_json(dados, nome):
         print("Exportado com sucesso.")
     except Exception as e:
         print("Erro ao exportar:", e)
+
 
 def criar_tabelas():
     conn = create_connection()
@@ -54,8 +59,10 @@ def criar_tabelas():
                 skill_level NUMBER
             )
         """)
-    except:
-        pass
+        print("Tabela 'professionals' criada.")
+    except Exception as e:
+        print("Aviso (professionals):", e)
+
     try:
         cur.execute("""
             CREATE TABLE learning_paths (
@@ -65,18 +72,22 @@ def criar_tabelas():
                 duration_hours NUMBER
             )
         """)
-    except:
-        pass
+        print("Tabela 'learning_paths' criada.")
+    except Exception as e:
+        print("Aviso (learning_paths):", e)
+
     conn.commit()
     cur.close()
     conn.close()
     print("Tabelas prontas.")
 
+
 def criar_profissional():
     nome = validar_str("Nome: ")
     email = validar_str("Email: ")
     cargo = validar_str("Cargo: ")
-    nivel = validar_int("Nível de habilidade (0-100): ")
+    nivel = validar_int("Nível de habilidade (0-100): ", 0, 100)
+
     conn = create_connection()
     if not conn:
         return
@@ -89,30 +100,47 @@ def criar_profissional():
         conn.commit()
         print("Profissional cadastrado.")
     except Exception as e:
-        print("Erro:", e)
-    cur.close()
-    conn.close()
+        print("Erro ao cadastrar profissional:", e)
+    finally:
+        cur.close()
+        conn.close()
+
 
 def listar_profissionais():
     conn = create_connection()
     if not conn:
         return
     cur = conn.cursor()
-    cur.execute("SELECT * FROM professionals ORDER BY id")
-    cols = [d[0].lower() for d in cur.description]
-    dados = [dict(zip(cols, r)) for r in cur.fetchall()]
-    for d in dados:
-        print(d)
-    if input("Exportar para JSON? (s/n): ").lower() == 's':
-        nome = validar_str("Nome do arquivo: ")
-        exportar_json(dados, nome)
-    cur.close()
-    conn.close()
+    try:
+        cur.execute("SELECT * FROM professionals ORDER BY id")
+        cols = [d[0].lower() for d in cur.description]
+        dados = [dict(zip(cols, r)) for r in cur.fetchall()]
+
+        if not dados:
+            print("Nenhum profissional cadastrado.")
+        else:
+            print("\n--- Profissionais ---")
+            for d in dados:
+                print(
+                    f"[{d['id']}] {d['name']} - {d['role']} "
+                    f"(skill: {d['skill_level']}, email: {d['email']})"
+                )
+
+        if dados and input("Exportar para JSON? (s/n): ").lower() == 's':
+            nome = validar_str("Nome do arquivo: ")
+            exportar_json(dados, nome)
+    except Exception as e:
+        print("Erro ao listar profissionais:", e)
+    finally:
+        cur.close()
+        conn.close()
+
 
 def criar_trilha():
     titulo = validar_str("Título: ")
     desc = validar_str("Descrição: ")
     dur = validar_int("Duração (h): ", 1, 500)
+
     conn = create_connection()
     if not conn:
         return
@@ -125,25 +153,41 @@ def criar_trilha():
         conn.commit()
         print("Trilha criada.")
     except Exception as e:
-        print("Erro:", e)
-    cur.close()
-    conn.close()
+        print("Erro ao criar trilha:", e)
+    finally:
+        cur.close()
+        conn.close()
+
 
 def listar_trilhas():
     conn = create_connection()
     if not conn:
         return
     cur = conn.cursor()
-    cur.execute("SELECT * FROM learning_paths ORDER BY id")
-    cols = [d[0].lower() for d in cur.description]
-    dados = [dict(zip(cols, r)) for r in cur.fetchall()]
-    for d in dados:
-        print(d)
-    if input("Exportar para JSON? (s/n): ").lower() == 's':
-        nome = validar_str("Nome do arquivo: ")
-        exportar_json(dados, nome)
-    cur.close()
-    conn.close()
+    try:
+        cur.execute("SELECT * FROM learning_paths ORDER BY id")
+        cols = [d[0].lower() for d in cur.description]
+        dados = [dict(zip(cols, r)) for r in cur.fetchall()]
+
+        if not dados:
+            print("Nenhuma trilha cadastrada.")
+        else:
+            print("\n--- Trilhas ---")
+            for d in dados:
+                print(
+                    f"[{d['id']}] {d['title']} - {d['description']} "
+                    f"({d['duration_hours']}h)"
+                )
+
+        if dados and input("Exportar para JSON? (s/n): ").lower() == 's':
+            nome = validar_str("Nome do arquivo: ")
+            exportar_json(dados, nome)
+    except Exception as e:
+        print("Erro ao listar trilhas:", e)
+    finally:
+        cur.close()
+        conn.close()
+
 
 def consulta_profissionais_iniciantes():
     limite = validar_int("Listar profissionais com nível abaixo de: ", 0, 100)
@@ -151,16 +195,121 @@ def consulta_profissionais_iniciantes():
     if not conn:
         return
     cur = conn.cursor()
-    cur.execute("SELECT name, role, skill_level FROM professionals WHERE skill_level < :1", (limite,))
-    cols = [d[0].lower() for d in cur.description]
-    dados = [dict(zip(cols, r)) for r in cur.fetchall()]
-    for d in dados:
-        print(d)
-    if input("Exportar para JSON? (s/n): ").lower() == 's':
-        nome = validar_str("Nome do arquivo: ")
-        exportar_json(dados, nome)
-    cur.close()
-    conn.close()
+    try:
+        cur.execute(
+            "SELECT name, role, skill_level FROM professionals WHERE skill_level < :1",
+            (limite,)
+        )
+        cols = [d[0].lower() for d in cur.description]
+        dados = [dict(zip(cols, r)) for r in cur.fetchall()]
+
+        if not dados:
+            print("Nenhum profissional encontrado com nível abaixo desse limite.")
+        else:
+            print("\n--- Profissionais iniciantes ---")
+            for d in dados:
+                print(f"{d['name']} - {d['role']} (skill: {d['skill_level']})")
+
+        if dados and input("Exportar para JSON? (s/n): ").lower() == 's':
+            nome = validar_str("Nome do arquivo: ")
+            exportar_json(dados, nome)
+    except Exception as e:
+        print("Erro na consulta:", e)
+    finally:
+        cur.close()
+        conn.close()
+
+
+def atualizar_profissional():
+    print("\nPrimeiro, veja os profissionais cadastrados:")
+    listar_profissionais()
+
+    id_prof = validar_int("\nID do profissional que deseja atualizar: ", 1, 999999)
+
+    conn = create_connection()
+    if not conn:
+        return
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT id, name, email, role, skill_level "
+            "FROM professionals WHERE id = :1",
+            (id_prof,)
+        )
+        row = cur.fetchone()
+        if not row:
+            print("Profissional não encontrado.")
+            return
+
+        id_atual, nome_atual, email_atual, cargo_atual, nivel_atual = row
+        print(f"\nDados atuais:")
+        print(f"Nome: {nome_atual}")
+        print(f"Email: {email_atual}")
+        print(f"Cargo: {cargo_atual}")
+        print(f"Nível de habilidade: {nivel_atual}")
+
+        print("\nDeixe em branco para manter o valor atual.")
+        novo_nome = input(f"Novo nome ({nome_atual}): ").strip() or nome_atual
+        novo_email = input(f"Novo email ({email_atual}): ").strip() or email_atual
+        novo_cargo = input(f"Novo cargo ({cargo_atual}): ").strip() or cargo_atual
+
+        nivel_input = input(f"Novo nível de habilidade ({nivel_atual}): ").strip()
+        if nivel_input:
+            try:
+                novo_nivel = int(nivel_input)
+                if not (0 <= novo_nivel <= 100):
+                    print("Nível fora do intervalo, mantendo valor atual.")
+                    novo_nivel = nivel_atual
+            except ValueError:
+                print("Valor inválido, mantendo valor atual.")
+                novo_nivel = nivel_atual
+        else:
+            novo_nivel = nivel_atual
+
+        cur.execute("""
+            UPDATE professionals
+            SET name = :1,
+                email = :2,
+                role = :3,
+                skill_level = :4
+            WHERE id = :5
+        """, (novo_nome, novo_email, novo_cargo, novo_nivel, id_atual))
+        conn.commit()
+        print("Profissional atualizado com sucesso.")
+    except Exception as e:
+        print("Erro ao atualizar profissional:", e)
+    finally:
+        cur.close()
+        conn.close()
+
+
+def deletar_profissional():
+    print("\nProfissionais cadastrados:")
+    listar_profissionais()
+
+    id_prof = validar_int("\nID do profissional que deseja deletar: ", 1, 999999)
+    confirma = input("Tem certeza que deseja deletar este profissional? (s/n): ").lower()
+    if confirma != 's':
+        print("Operação cancelada.")
+        return
+
+    conn = create_connection()
+    if not conn:
+        return
+    cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM professionals WHERE id = :1", (id_prof,))
+        if cur.rowcount == 0:
+            print("Nenhum profissional encontrado com esse ID.")
+        else:
+            conn.commit()
+            print("Profissional deletado com sucesso.")
+    except Exception as e:
+        print("Erro ao deletar profissional:", e)
+    finally:
+        cur.close()
+        conn.close()
+
 
 def menu():
     while True:
@@ -171,19 +320,33 @@ def menu():
         print("4 - Cadastrar trilha")
         print("5 - Listar trilhas")
         print("6 - Consultar profissionais iniciantes")
+        print("7 - Atualizar profissional")
+        print("8 - Deletar profissional")
         print("0 - Sair")
-        opc = input("Opção: ")
-        if opc == '1': criar_tabelas()
-        elif opc == '2': criar_profissional()
-        elif opc == '3': listar_profissionais()
-        elif opc == '4': criar_trilha()
-        elif opc == '5': listar_trilhas()
-        elif opc == '6': consulta_profissionais_iniciantes()
+        opc = input("Opção: ").strip()
+
+        if opc == '1':
+            criar_tabelas()
+        elif opc == '2':
+            criar_profissional()
+        elif opc == '3':
+            listar_profissionais()
+        elif opc == '4':
+            criar_trilha()
+        elif opc == '5':
+            listar_trilhas()
+        elif opc == '6':
+            consulta_profissionais_iniciantes()
+        elif opc == '7':
+            atualizar_profissional()
+        elif opc == '8':
+            deletar_profissional()
         elif opc == '0':
             print("Saindo...")
             sys.exit()
         else:
             print("Opção inválida.")
+
 
 if __name__ == "__main__":
     menu()
