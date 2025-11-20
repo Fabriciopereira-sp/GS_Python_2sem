@@ -33,4 +33,3 @@ Biblioteca oracledb instalada
 
 Oracle Instant Client (caso o sistema operacional exija)
 
-Instalação:
