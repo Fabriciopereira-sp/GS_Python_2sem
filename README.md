@@ -1,3 +1,5 @@
+link video: https://youtu.be/7X8Jk58I8dg
+
 README – SkillShift AI (CRUD em Python com Oracle)
 Integrantes
 
